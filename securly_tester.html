@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Securly URL Tester</title>
+    
+</head>
+<body>
+
+<div class="card">
+    <h2>STATUS CHECKER</h2>
+
+    <div class="input-group">
+        <label>Student Email</label>
+        <input type="email" id="email" placeholder="student@school.edu">
+    </div>
+
+    <div class="input-group">
+        <label>Target URL</label>
+        <input type="text" id="url" placeholder="example.com">
+    </div>
+
+    <button id="btn" onclick="runCheck()">Check Status</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. PROXY CONFIGURATION (EDIT THIS SECTION)
+    // ==========================================
+    function getProxiedUrl(targetUrl) {
+        // OPTION A: Use corsproxy.io (Default)
+        const proxyBase = "https://corsproxy.io/?";
+        return proxyBase + encodeURIComponent(targetUrl);
+
+        // OPTION B: No Proxy (Direct) -> Uncomment below, comment above
+        // return targetUrl;
+
+        // OPTION C: Custom Proxy (e.g., Ultraviolet/Wisp)
+        // return "/service/" + btoa(targetUrl); 
+    }
+    // ==========================================
+
+
+    async function runCheck() {
+        const email = document.getElementById('email').value.trim();
+        const rawUrl = document.getElementById('url').value.trim();
+        const resultEl = document.getElementById('result');
+        const btn = document.getElementById('btn');
+
+        if (!email || !rawUrl) {
+            alert("Please provide both an email and a URL.");
+            return;
+        }
+
+        // UI Reset
+        btn.disabled = true;
+        btn.innerText = "Checking...";
+        resultEl.style.display = 'none';
+
+        // 1. Prepare Data
+        const SECURLY_SERVER = 'https://useast-www.securly.com';
+        
+        let targetUrl = rawUrl;
+        if (!targetUrl.startsWith('http')) targetUrl = 'https://' + targetUrl;
+
+        let hostname;
+        try { hostname = new URL(targetUrl).hostname; } catch(e) { hostname = targetUrl; }
+
+        // 2. Build API URL
+        const params = new URLSearchParams({
+            useremail: email,
+            reason: 'crextn',
+            host: hostname,
+            url: btoa(targetUrl),
+            msg: '',
+            ver: '2.97.13',
+            cu: SECURLY_SERVER + '/crextn',
+            uf: '1',
+            cf: '1'
+        });
+
+        const fullApiUrl = `${SECURLY_SERVER}/crextn/broker?${params.toString()}`;
+
+        // 3. Apply Proxy
+        const finalRequestUrl = getProxiedUrl(fullApiUrl);
+
+        // 4. Fetch & Display
+        try {
+            const response = await fetch(finalRequestUrl);
+            const text = await response.text();
+
+            resultEl.style.display = 'block';
+
+            if (text.includes('DENY')) {
+                resultEl.className = 'status-blocked';
+                resultEl.innerText = "BLOCKED";
+            } else if (text.includes('ALLOW')) {
+                resultEl.className = 'status-allowed';
+                resultEl.innerText = "ALLOWED";
+            } else {
+                resultEl.className = 'status-error';
+                resultEl.innerText = "UNKNOWN RESPONSE";
+                console.log("Raw response:", text);
+            }
+        } catch (err) {
+            console.error(err);
+            resultEl.style.display = 'block';
+            resultEl.className = 'status-error';
+            resultEl.innerText = "CONNECTION ERROR";
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Check Status";
+        }
+    }
+</script>
+
+</body>
+</html>
